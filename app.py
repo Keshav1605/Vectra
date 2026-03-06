@@ -80,26 +80,33 @@ def refine_prompt_with_ai(user_input: str, ai_tool: str, tone: str) -> Dict[str,
         system_prompt = create_refinement_prompt(user_input, ai_tool, tone)
         full_prompt = f"{system_prompt}\n\nUser request: {user_input}"
 
-        # use ChatCompletion for more flexible responses
-        resp = openai.ChatCompletion.create(
+        # use the new Responses API
+        resp = openai.responses.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": full_prompt}]
+            input=full_prompt
         )
-        refined_text = resp['choices'][0]['message']['content']
+        # `output_text` is a convenience property that joins text outputs
+        refined_text = resp.output_text if hasattr(resp, "output_text") else resp.output[0].content[0].text
 
         explanation_prompt = (
             f"Based on this refined prompt: {refined_text}\n\n"
             "Provide a brief explanation (2-3 sentences) of why this prompt structure works well for the user's goal. "
             "Focus on how the structure helps the AI understand and execute the task effectively."
         )
-        explanation_resp = openai.ChatCompletion.create(
+        explanation_resp = openai.responses.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": explanation_prompt}]
+            input=explanation_prompt
+        )
+
+        explanation_text = (
+            explanation_resp.output_text
+            if hasattr(explanation_resp, "output_text")
+            else explanation_resp.output[0].content[0].text
         )
 
         return {
             "prompt": refined_text,
-            "explanation": explanation_resp['choices'][0]['message']['content']
+            "explanation": explanation_text
         }
     except Exception as e:
         return {
