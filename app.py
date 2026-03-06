@@ -1,7 +1,11 @@
 import streamlit as st
-import google.generativeai as genai
+import openai
 import os
 from typing import Dict, Any
+
+# load environment variables from .env (for local development)
+from dotenv import load_dotenv
+load_dotenv()
 
 # Set page configuration
 st.set_page_config(
@@ -16,15 +20,14 @@ if 'optimized_prompt' not in st.session_state:
 if 'prompt_explanation' not in st.session_state:
     st.session_state.prompt_explanation = ""
 
-def get_gemini_client():
-    """Initialize and return Gemini client"""
-    # Try Streamlit secrets first (for deployment), then environment variables
-    api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv('GEMINI_API_KEY')
+def get_openai_client() -> bool:
+    """Configure OpenAI API key; returns True if set successfully."""
+    api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv('OPENAI_API_KEY')
     if not api_key:
-        st.error("❌ API key not found. Please configure GEMINI_API_KEY in your environment or Streamlit secrets.")
-        return None
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-2.5-flash')
+        st.error("❌ API key not found. Please configure OPENAI_API_KEY in your environment or Streamlit secrets.")
+        return False
+    openai.api_key = api_key
+    return True
 
 def create_refinement_prompt(user_input: str, ai_tool: str, tone: str) -> str:
     """Create the system prompt for refining user input"""
@@ -71,33 +74,33 @@ Make the prompt comprehensive but not overly verbose. Add missing details that w
     
     return system_prompt
 
-def refine_prompt_with_ai(model, user_input: str, ai_tool: str, tone: str) -> Dict[str, str]:
-    """Send user input to Gemini for refinement"""
-    
+def refine_prompt_with_ai(user_input: str, ai_tool: str, tone: str) -> Dict[str, str]:
+    """Send user input to OpenAI for refinement"""
     try:
         system_prompt = create_refinement_prompt(user_input, ai_tool, tone)
-        
-        # Combine system prompt and user input for Gemini
         full_prompt = f"{system_prompt}\n\nUser request: {user_input}"
-        
-        response = model.generate_content(full_prompt)
-        refined_text = response.text
-        
-        # Generate explanation
-        explanation_prompt = f"""
-Based on this refined prompt: {refined_text}
 
-Provide a brief explanation (2-3 sentences) of why this prompt structure works well for the user's goal. 
-Focus on how the structure helps the AI understand and execute the task effectively.
-"""
-        
-        explanation_response = model.generate_content(explanation_prompt)
-        
+        # use ChatCompletion for more flexible responses
+        resp = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": full_prompt}]
+        )
+        refined_text = resp['choices'][0]['message']['content']
+
+        explanation_prompt = (
+            f"Based on this refined prompt: {refined_text}\n\n"
+            "Provide a brief explanation (2-3 sentences) of why this prompt structure works well for the user's goal. "
+            "Focus on how the structure helps the AI understand and execute the task effectively."
+        )
+        explanation_resp = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": explanation_prompt}]
+        )
+
         return {
             "prompt": refined_text,
-            "explanation": explanation_response.text
+            "explanation": explanation_resp['choices'][0]['message']['content']
         }
-        
     except Exception as e:
         return {
             "prompt": f"Error generating prompt: {str(e)}",
@@ -112,11 +115,10 @@ def main():
     st.markdown("*Transform simple ideas into powerful AI prompts*")
     st.markdown("---")
     
-    # Get Gemini client
-    model = get_gemini_client()
-    if not model:
-        st.error("❌ API Key Required: Please set your GEMINI_API_KEY in the deployment environment variables/secrets.")
-        st.info("For local development, create a `.env` file with `GEMINI_API_KEY=your_key_here`")
+    # configure OpenAI client
+    if not get_openai_client():
+        st.error("❌ API Key Required: Please set your OPENAI_API_KEY in the deployment environment variables/secrets.")
+        st.info("For local development, create a `.env` file with `OPENAI_API_KEY=your_key_here`")
         return
     
     # User input section
@@ -159,7 +161,7 @@ def main():
             return
         
         with st.spinner("🔄 Refining your prompt..."):
-            result = refine_prompt_with_ai(model, user_input, ai_tool, tone)
+            result = refine_prompt_with_ai(user_input, ai_tool, tone)
             st.session_state.optimized_prompt = result["prompt"]
             st.session_state.prompt_explanation = result["explanation"]
     

@@ -1,6 +1,6 @@
 # vectra - AI Prompt Refiner
 
-Vectra is a Streamlit application that helps users transform simple ideas into powerful, well-structured prompts for various AI tools. It leverages Google's Gemini generative AI to refine user input and provide explanations for why the generated prompt works.
+Vectra is a Streamlit application that helps users transform simple ideas into powerful, well-structured prompts for various AI tools. It uses the OpenAI API to refine user input and provide explanations for why the generated prompt works.
 
 ## 🚀 Features
 
@@ -35,9 +35,9 @@ Vectra is a Streamlit application that helps users transform simple ideas into p
 4. **Configure API key:**
    - Local development: create a `.env` file in the project root with:
      ```
-     GEMINI_API_KEY=your_api_key_here
+     OPENAI_API_KEY=your_api_key_here
      ```
-   - Deployment: set `GEMINI_API_KEY` in your hosting environment or in Streamlit
+   - Deployment: set `OPENAI_API_KEY` in your hosting environment or in Streamlit
      secrets (see below).
 
 ## 📦 Deployment
@@ -50,7 +50,7 @@ Streamlit Cloud:
 3. Connect the `Keshav1605/Vectra` repo and point to `app.py`.
 4. Add the API key to **Secrets**:
    ```
-   GEMINI_API_KEY=your_api_key_here
+   OPENAI_API_KEY=your_api_key_here
    ```
 5. Deploy — the app will be available at a public URL.
 
